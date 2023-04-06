@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-secret
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  {{ .Values.global.mongodb.secretKeys.rootUser }}: {{ .Values.mongodb.secrets.rootUser | b64enc }}
+  {{ .Values.global.mongodb.secretKeys.rootPass }}: {{ .Values.global.secrets.pass | b64enc }}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-configmap
+  namespace: {{ .Release.Namespace }}
+data:
+  {{ .Values.global.mongodb.configMapKeys.mongodbHostname }}: "mongodb://{{ .Values.mongodb.secrets.rootUser }}:{{ .Values.global.secrets.pass }}@{{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-srv:27017"
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.mongodb.persistence.size }}
+  storageClassName: {{ .Values.mongodb.persistence.storageClassName }}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-depl
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.mongodb.labels.app }}-{{ .Release.Namespace }}
+    team: {{ .Values.mongodb.labels.team }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.mongodb.labels.app }}-{{ .Release.Namespace }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mongodb.labels.app }}-{{ .Release.Namespace }}
+    spec:
+      volumes:
+        - name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-pvc
+      containers:
+        - name: {{ .Values.global.mongodb.name }}-con
+          image: {{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}
+          volumeMounts:
+            - name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-data
+              mountPath: {{ .Values.mongodb.persistence.mountPath }}
+          ports:
+            - containerPort: {{ .Values.mongodb.ports.default }} 
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-secret
+                  key: {{ .Values.global.mongodb.secretKeys.rootUser }}
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-secret
+                  key: {{ .Values.global.mongodb.secretKeys.rootPass }}
+            - name: TZ
+              value: {{ .Values.global.envs.tz }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-srv
+spec: 
+  selector:
+    app: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}
+  ports:
+    - port: {{ .Values.mongodb.ports.default }} 
+      name: {{ .Values.global.mongodb.name }}
+      targetPort: {{ .Values.mongodb.ports.default }} 
+  type: NodePort

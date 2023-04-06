@@ -1,0 +1,29 @@
+mongodb:
+  secrets:
+    rootUser: root
+  persistence:
+    size: 10Gi
+    storageClassName: standard
+    mountPath: /data/db
+  labels:
+    app: mongodb
+    team: backend
+  image:
+    repository: mongo
+    tag: latest
+  ports:
+    default: 27017
+
+
+global:
+  secrets:
+    pass: password
+  envs:
+    tz: Asia/Bangkok
+  mongodb:
+    name: mongodb
+    secretKeys:
+      rootUser: rootUser
+      rootPass: rootPass
+    configMapKeys:
+      mongodbHostname: mongodbHostname
