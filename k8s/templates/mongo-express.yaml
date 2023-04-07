@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-express-{{ .Release.Namespace }}-depl
+  labels:
+    app: mongo-express-{{ .Release.Namespace }}
+    team: backend
+spec:
+  selector:
+    matchLabels:
+      app: mongo-express-{{ .Release.Namespace }}
+  template:
+    metadata:
+      labels:
+        app: mongo-express-{{ .Release.Namespace }}
+    spec:
+      containers:
+        - name: mongo-express-{{ .Release.Namespace }}-con
+          image: mongo-express:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+              valueFrom:
+                secretKeyRef: 
+                  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-secret
+                  key: {{ .Values.global.mongodb.secretKeys.rootUser }}
+            - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+              valueFrom:
+                secretKeyRef: 
+                  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-secret
+                  key: {{ .Values.global.mongodb.secretKeys.rootPass }}
+            - name: ME_CONFIG_MONGODB_SERVER
+              value: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-srv
+            - name: ME_CONFIG_BASICAUTH_USERNAME
+              valueFrom:
+                secretKeyRef: 
+                  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-secret
+                  key: {{ .Values.global.mongodb.secretKeys.rootUser }}
+            - name: ME_CONFIG_BASICAUTH_PASSWORD
+              valueFrom:
+                secretKeyRef: 
+                  name: {{ .Values.global.mongodb.name }}-{{ .Release.Namespace }}-secret
+                  key: {{ .Values.global.mongodb.secretKeys.rootPass }}
+            - name: TZ
+              value: {{ .Values.global.envs.tz }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-express-{{ .Release.Namespace }}-srv
+spec:
+  selector:
+    app: mongo-express-{{ .Release.Namespace }}
+  ports:
+    - port: 8081
+      name: mongo-express-{{ .Release.Namespace }}-srv
+      targetPort: 8081
+      protocol: TCP
+  type: NodePort
